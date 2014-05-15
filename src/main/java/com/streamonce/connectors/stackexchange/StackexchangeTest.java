@@ -2,21 +2,16 @@ package com.streamonce.connectors.stackexchange;
 
 
 import com.streamonce.dummy.framework.JacksonJson;
-import com.streamonce.sdk.v1.connector.ConnectorSettingsValidator;
-import com.streamonce.sdk.v1.framework.Framework;
-import com.streamonce.sdk.v1.framework.FrameworkFactory;
 import com.streamonce.sdk.v1.framework.Json;
-import com.streamonce.sdk.v1.framework.http.HttpResponse;
-import com.streamonce.sdk.v1.model.*;
+import com.streamonce.sdk.v1.model.Author;
+import com.streamonce.sdk.v1.model.Content;
+import com.streamonce.sdk.v1.model.Mapping;
 import com.streamonce.sdk.v1.model.impl.ContentImpl;
-import com.streamonce.sdk.v1.model.impl.StatusImpl;
 import com.streamonce.test.TestUtils;
-import org.apache.commons.lang.StringUtils;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.map.ObjectMapper;
 
 import java.io.IOException;
-import java.text.MessageFormat;
 import java.util.*;
 
 /**

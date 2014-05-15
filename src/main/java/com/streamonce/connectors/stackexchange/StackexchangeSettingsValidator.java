@@ -21,9 +21,11 @@ import java.text.MessageFormat;
  * Time: 16:42
  */
 public class StackexchangeSettingsValidator implements ConnectorSettingsValidator {
-    public final static String SELF_URL = StackexchangeConnector.ENDPOINT_BASE +"me?order=desc&sort=reputation&" +StackexchangeConnector.ENDPOINT_ID_PARAMS;
-    public final static String TAG_URL = StackexchangeConnector.ENDPOINT_BASE + "tags/{0}?" +StackexchangeConnector.ENDPOINT_ID_PARAMS;
-     // TODO
+    public final static String SELF_URL = StackexchangeConnector.ENDPOINT_BASE + "me?order=desc&sort=reputation&" +
+            StackexchangeConnector.ENDPOINT_ID_PARAMS;
+    public final static String TAG_URL =
+            StackexchangeConnector.ENDPOINT_BASE + "tags/{0}?" + StackexchangeConnector.ENDPOINT_ID_PARAMS;
+    // TODO
 
 
     @Override
@@ -45,12 +47,10 @@ public class StackexchangeSettingsValidator implements ConnectorSettingsValidato
                 JsonNode node = framework.getJson().fromString(response.getResponseBody(), JsonNode.class);
                 if (node.path("items").size() > 0) {
                     return new StatusImpl(true);
-                }
-                else {
+                } else {
                     return new StatusImpl(false, "Tag has no content");
                 }
-            }
-            catch (IOException e) {
+            } catch (IOException e) {
                 framework.getLogger().error("Failed parsing tag count response", e);
             }
         }
@@ -65,12 +65,10 @@ public class StackexchangeSettingsValidator implements ConnectorSettingsValidato
                 JsonNode node = framework.getJson().fromString(body, JsonNode.class);
                 if (node.path("items").size() > 0) {
                     return new StatusImpl(true);
-                }
-                else {
+                } else {
                     return new StatusImpl(false, "Stackexchange responded with bad response: " + body);
                 }
-            }
-            catch (IOException e) {
+            } catch (IOException e) {
                 framework.getLogger().error("Failed parsing Stackexchange response", e);
             }
         }
