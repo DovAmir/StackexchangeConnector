@@ -2,7 +2,6 @@ package com.streamonce.connectors.stackexchange;
 
 //import com.streamonce.dummy.framework.JacksonJson;
 
-import com.streamonce.dummy.framework.JacksonJson;
 import com.streamonce.sdk.v1.connector.*;
 import com.streamonce.sdk.v1.connector.config.ConfigInputType;
 import com.streamonce.sdk.v1.connector.config.ConnectorConfig;
@@ -16,10 +15,8 @@ import com.streamonce.sdk.v1.model.*;
 import com.streamonce.sdk.v1.model.impl.AuthorImpl;
 import com.streamonce.sdk.v1.model.impl.ContentContainerImpl;
 import com.streamonce.sdk.v1.model.impl.ContentImpl;
-import com.streamonce.test.TestUtils;
 import org.apache.commons.lang.StringUtils;
 import org.codehaus.jackson.JsonNode;
-import org.codehaus.jackson.map.ObjectMapper;
 
 import java.io.IOException;
 import java.text.MessageFormat;
@@ -28,7 +25,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Created with IntelliJ IDEA.
- * User: Zvoykish
+ * User: dov.amir
  * Date: 4/6/14
  * Time: 16:40
  */
@@ -119,10 +116,7 @@ public class StackexchangeConnector implements ContentWriter, ScheduledReader {
                 }
 
                 JsonNode node = json.fromString(body, JsonNode.class);
-//                JsonNode codeNode = node.path("meta").path("code");
-//                if (codeNode.getIntValue() != 200) {
-//                    throw new ConnectorException("Fetch returned code: " + codeNode + ". Response: " + body);
-//                }
+
 
                 String newState = node.path("has_more").getTextValue();
                 if (StringUtils.isEmpty(newState)) {
@@ -275,11 +269,7 @@ public class StackexchangeConnector implements ContentWriter, ScheduledReader {
 
             try {
                 JsonNode node = framework.getJson().fromString(body, JsonNode.class);
-//                JsonNode codeNode = node.path("meta").path("code");
-//                if (codeNode.getIntValue() != 200) {
-//                    logger.error("Failed reading new comment from Instagram. Unexpected meta response: " + body);
-//                    return null;
-//                }
+
 
                 JsonNode datas = node.path("items");
                 JsonNode first = datas.path(0);
@@ -293,8 +283,6 @@ public class StackexchangeConnector implements ContentWriter, ScheduledReader {
 
         return null;
     }
-
-
 
 
 }
