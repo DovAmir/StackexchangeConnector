@@ -15,22 +15,17 @@ import com.streamonce.sdk.v1.model.impl.StatusImpl;
 import org.apache.commons.lang.StringUtils;
 import org.codehaus.jackson.JsonNode;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.text.MessageFormat;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Scanner;
-import java.util.zip.GZIPInputStream;
 
 /**
  * Created with IntelliJ IDEA.
- * User: yuval.twig
+ * User: dov.amir
  * Date: 06/04/2014
  * Time: 16:48
  * To change this template use File | Settings | File Templates.
@@ -38,6 +33,11 @@ import java.util.zip.GZIPInputStream;
 public class StackexchangeOAuth implements OAuthProvider {
 
     //https://api.stackexchange.com/docs/authentication
+
+    public final static String CLIENT_ID = "xxxx";
+    public final static String CLIENT_SECRET = "xxxx";
+    public final static String CLIENT_KEY = "xxxx";
+
     /*
         client_id
         scope (details)
@@ -51,16 +51,9 @@ public class StackexchangeOAuth implements OAuthProvider {
         redirect_uri - must be the same as the provided in the first step
      */
     public static final String URL_ACCESS_TOKEN = "https://stackexchange.com/oauth/access_token";
-
     public final static String SCOPE = "no_expiry,write_access";
-    public final static String CLIENT_ID = "2982";
-    public final static String CLIENT_SECRET = ")lMdSqfQbCEyCjoPk8k0FQ(("; //TODO
-    public final static String CLIENT_KEY = "kl)aRzNT6iS2uP*lLTZG4Q((";
-   // public final static String REDIRECT_URI =
-    //        "http://localhost:8000/external/callback/" + StackexchangeConnector.TYPE;//TODO
-    //<STREAMONCE_SEREVER>/external/callback/{systemType}
     public final static String REDIRECT_URI =
-            "http://127.0.0.1:8000/external/callback/" + StackexchangeConnector.TYPE;//TODO
+            "http://127.0.0.1:8000/external/callback/" + StackexchangeConnector.TYPE;
 
     public OAuthEndpoint getOauthEndpoint() {
         String url = MessageFormat.format(URL_AUTHORIZATION, CLIENT_ID, REDIRECT_URI, SCOPE);
@@ -118,9 +111,9 @@ public class StackexchangeOAuth implements OAuthProvider {
 
     private UserAccount getUserAccount(Framework framework, String accessToken)
             throws IOException {
-        UserAccount userAccount=new UserAccount(CLIENT_ID, "dov.amir", "dov.amir", accessToken, "");
+        UserAccount userAccount = new UserAccount(CLIENT_ID, "dov.amir", "dov.amir", accessToken, "");
 
-        String url = MessageFormat.format(StackexchangeSettingsValidator.SELF_URL, "",accessToken);
+        String url = MessageFormat.format(StackexchangeSettingsValidator.SELF_URL, "", accessToken);
         HttpResponse responseUser = framework.getHttp().get(url).execute();
         String userbody = responseUser.getResponseBody();
 
@@ -131,7 +124,7 @@ public class StackexchangeOAuth implements OAuthProvider {
             String userId = user.path("user_id").getTextValue();   //should be account_id ?
             String username = user.path("display_name").getTextValue();
             String userDisplayName = user.path("display_name").getTextValue();
-            userAccount= new UserAccount(userId, username, userDisplayName, accessToken, "");
+            userAccount = new UserAccount(userId, username, userDisplayName, accessToken, "");
         }
         return userAccount;
     }
