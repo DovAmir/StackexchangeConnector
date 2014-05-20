@@ -1,18 +1,16 @@
 package com.streamonce.connectors.stackexchange;
 
 
-import com.streamonce.dummy.framework.JacksonJson;
-import com.streamonce.sdk.v1.framework.Json;
 import com.streamonce.sdk.v1.model.Author;
 import com.streamonce.sdk.v1.model.Content;
-import com.streamonce.sdk.v1.model.Mapping;
-import com.streamonce.sdk.v1.model.impl.ContentImpl;
 import com.streamonce.test.TestUtils;
 import org.codehaus.jackson.JsonNode;
 import org.codehaus.jackson.map.ObjectMapper;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
 
 /**
  * Created with IntelliJ IDEA.
@@ -25,7 +23,7 @@ public class StackexchangeTest  {
 
 
     public static void main(String[] args) {
-        TestUtils.testOauth(new StackexchangeConnector());
+        TestUtils.testConnector(new StackexchangeConnector());
 
     }
 
@@ -35,8 +33,6 @@ public class StackexchangeTest  {
 
 
     public static void testJson(String[] args) {
-        Json json = new JacksonJson();
-        Map<String, List<Mapping>> ongoingMappings = new HashMap<>();
         List<Content> contents = new ArrayList<>();
         try {
 
@@ -54,7 +50,7 @@ public class StackexchangeTest  {
                 String postBody = sc.createBody(dataNode);
                 Date date = sc.getCreationDate(dataNode);
                 Author author = sc.getAuthor(dataNode.path("owner"));
-                Content content = new ContentImpl(id, title, postBody, date, author, true);
+                Content content = new Content(id, title, postBody, date, author, true);
 
                 content.setContentUrl(dataNode.path("link").getTextValue());
 
@@ -73,7 +69,7 @@ public class StackexchangeTest  {
                         if (commenttitle.length() > 40) {
                             commenttitle = commenttitle.substring(0, 39);
                         }
-                        Content comment = new ContentImpl(commentId, commenttitle, text, commentDate, commentAuthor,
+                        Content comment = new Content(commentId, commenttitle, text, commentDate, commentAuthor,
                                 true);
                         comment.setContentUrl(commentNode.path("link").getTextValue());
                         comment.setParentId(id);

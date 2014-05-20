@@ -2,21 +2,25 @@ package com.streamonce.connectors.stackexchange;
 
 //import com.streamonce.dummy.framework.JacksonJson;
 
-import com.streamonce.sdk.v1.connector.*;
-import com.streamonce.sdk.v1.connector.config.ConfigInputType;
-import com.streamonce.sdk.v1.connector.config.ConnectorConfig;
+import com.streamonce.sdk.v1.connector.Connector;
+import com.streamonce.sdk.v1.connector.ConnectorException;
+import com.streamonce.sdk.v1.connector.Metadata;
+import com.streamonce.sdk.v1.connector.config.TileConfiguration;
+import com.streamonce.sdk.v1.connector.read.ContentReader;
+import com.streamonce.sdk.v1.connector.read.ScheduledReader;
+import com.streamonce.sdk.v1.connector.write.ContentWriter;
 import com.streamonce.sdk.v1.framework.Framework;
 import com.streamonce.sdk.v1.framework.FrameworkFactory;
-import com.streamonce.sdk.v1.framework.Json;
 import com.streamonce.sdk.v1.framework.Logger;
 import com.streamonce.sdk.v1.framework.http.Http;
 import com.streamonce.sdk.v1.framework.http.HttpResponse;
-import com.streamonce.sdk.v1.model.*;
-import com.streamonce.sdk.v1.model.impl.AuthorImpl;
-import com.streamonce.sdk.v1.model.impl.ContentContainerImpl;
-import com.streamonce.sdk.v1.model.impl.ContentImpl;
+import com.streamonce.sdk.v1.model.Account;
+import com.streamonce.sdk.v1.model.Author;
+import com.streamonce.sdk.v1.model.Content;
+import com.streamonce.sdk.v1.model.Status;
 import org.apache.commons.lang.StringUtils;
 import org.codehaus.jackson.JsonNode;
+import org.codehaus.jackson.map.ObjectMapper;
 
 import java.io.IOException;
 import java.text.MessageFormat;
@@ -38,14 +42,9 @@ import java.util.concurrent.TimeUnit;
         ),
         authentication = StackexchangeOAuth.class,
         validator = StackexchangeSettingsValidator.class,
-        comments = StackexchangeConnector.class,
-        configuration = @ConnectorConfig(          //TODO
-                type = ConfigInputType.text,
-                name = "Tag",
-                // inputPrefix = "",
-                placeholder = "Stackoverflow tag",
-                description = "Tag to follow"
-        )
+        contentWriter = StackexchangeConnector.class,
+        tileConfiguration = StackexchangeConfiguration.class
+
 )
 public class StackexchangeConnector implements ContentWriter, ScheduledReader {
 
@@ -85,24 +84,27 @@ public class StackexchangeConnector implements ContentWriter, ScheduledReader {
         return TimeUnit.MINUTES.toSeconds(1);
     }
 
+
     @Override
-    public ContentContainer read(Account account) throws ConnectorException {
-        List<Content> contents = new ArrayList<>();
-        Map<Mapping, String> states = new HashMap<>();
+    public List<ContentReader.Response> read(Account account, List<TileConfiguration> tileConfigurations)
+            throws ConnectorException
+    {
+        List<ContentReader.Response> result = new ArrayList<>();
         String token = account.getPassword();
 
         Framework framework = FrameworkFactory.createFramework(TYPE);
         Http http = framework.getHttp();
-        Json json = framework.getJson();
+        ObjectMapper objectMapper = new ObjectMapper();
         Logger logger = framework.getLogger();
-        List<Mapping> mappings = framework.getAccounts().getMappings(account);
-        Map<String, List<Mapping>> ongoingMappings = new HashMap<>();
-        for (Mapping mapping : mappings) {
-            String mappingName = mapping.getMappingName();
+
+
+        for (TileConfiguration tileConfiguration : tileConfigurations) {
+            String mappingName = tileConfiguration.getConfiguration("group").getValueId();
+            ContentReader.Response currResponse = new ContentReader.Response(tileConfiguration.getTileId());
             try {
                 int limit = MAX_ITEMS_FOR_INITIAL_FETCH;
                 String url = MessageFormat.format(ENDPOINT_GET_RECENT_QUESTIONS, mappingName, token);
-                String lastState = mapping.getLastState();
+                String lastState = tileConfiguration.getState();
 //               if (StringUtils.isNotEmpty(lastState)) {    //TODO
 //                    url += PARAM_MIN_ID + lastState;
 //                    limit = Integer.MAX_VALUE;
@@ -115,14 +117,13 @@ public class StackexchangeConnector implements ContentWriter, ScheduledReader {
                             "Failed fetching recent media for: " + mappingName + ". Error: " + body);
                 }
 
-                JsonNode node = json.fromString(body, JsonNode.class);
+                JsonNode node = objectMapper.readValue(body, JsonNode.class);
 
 
                 String newState = node.path("has_more").getTextValue();
                 if (StringUtils.isEmpty(newState)) {
                     newState = lastState;
                 }
-                states.put(mapping, newState);      //TODO
 
                 JsonNode array = node.path("items");
                 int contentCounter = 0;
@@ -132,12 +133,11 @@ public class StackexchangeConnector implements ContentWriter, ScheduledReader {
                     String postBody = createBody(dataNode);
                     Date date = getCreationDate(dataNode);
                     Author author = getAuthor(dataNode.path("owner"));
-                    Content content = new ContentImpl(id, title, postBody, date, author, true);
+                    Content content = new Content(id, title, postBody, date, author, true);
 
                     content.setContentUrl(dataNode.path("link").getTextValue());
 
-                    contents.add(content);
-                    mapContentMapping(id, mapping, ongoingMappings);
+                    currResponse.addContent(content);
 
                     JsonNode comments = dataNode.path("answers");
                     int commentCounter = 0;
@@ -151,13 +151,12 @@ public class StackexchangeConnector implements ContentWriter, ScheduledReader {
                             if (commenttitle.length() > 40) {
                                 commenttitle = commenttitle.substring(0, 39);
                             }
-                            Content comment = new ContentImpl(commentId, commenttitle, text, commentDate, commentAuthor,
+                            Content comment = new Content(commentId, commenttitle, text, commentDate, commentAuthor,
                                     true);
                             comment.setContentUrl(commentNode.path("link").getTextValue());
                             comment.setParentId(id);
 
-                            contents.add(comment);
-                            mapContentMapping(commentId, mapping, ongoingMappings);
+                            currResponse.addContent(comment);
 
                             if (++commentCounter >= limit) {
                                 break;
@@ -169,24 +168,15 @@ public class StackexchangeConnector implements ContentWriter, ScheduledReader {
                         break;
                     }
                 }
-            } catch (IOException e) {
+
+
+            }
+            catch (IOException e) {
                 logger.error("Failed fetching media for: " + mappingName);
             }
         }
 
-        for (Content content : contents) {
-            content.setMappings(ongoingMappings.get(content.getContentId()));
-        }
-        return new ContentContainerImpl(contents, states);
-    }
-
-    public void mapContentMapping(String contentId, Mapping mapping, Map<String, List<Mapping>> ongoingMappings) {
-        List<Mapping> list = ongoingMappings.get(contentId);
-        if (list == null) {
-            list = new ArrayList<>();
-            ongoingMappings.put(contentId, list);
-        }
-        list.add(mapping);
+        return result;
     }
 
     public Date getCreationDate(JsonNode dataNode) {
@@ -196,7 +186,7 @@ public class StackexchangeConnector implements ContentWriter, ScheduledReader {
 
     public Author getAuthor(JsonNode authorNode) {
         String authorName = authorNode.path("display_name").getTextValue();
-        return new AuthorImpl(authorName, "");
+        return new Author(authorName, "");
     }
 
     public String createBody(JsonNode node) {
@@ -216,72 +206,73 @@ public class StackexchangeConnector implements ContentWriter, ScheduledReader {
         return sb.toString();
     }
 
-    public String write(Content comment) {
+    public ContentWriter.Response write(Account account, Content content) {
         Framework framework = FrameworkFactory.createFramework(TYPE);
         Logger logger = framework.getLogger();
-        logger.debug("Got new comment from Jive with subject " + comment.getTitle());
+        logger.debug("Got new comment from Jive with subject " + content.getTitle());
 
         Http http = framework.getHttp();
-        List<Mapping> mappings = comment.getMappings();
-        // TODO: We don't really loop through all... since we return a single String..... :)
-        for (Mapping mapping : mappings) {
-            String accessToken = mapping.getAccount().getPassword();
-            Map<String, String> params = new HashMap<>();
-            String mediaId = comment.getParentId();
-
-            params.put("access_token", accessToken);
-            params.put("body", comment.getBody());
-            params.put("site", SITE);
-            params.put("id", mediaId);
-            params.put("key", StackexchangeOAuth.CLIENT_KEY);
 
 
-            String url = MessageFormat.format(ENDPOINT_POST_ANSWER, mediaId);
-            HttpResponse response = http.post(url, params).withFormParamsContentType().execute();
-            int statusCode = response.getStatusCode();
-            String body = response.getResponseBody();
-            if (statusCode != 200) {
-                logger.error("Failed posting comment in Instagram. Received [" + statusCode + "]: " + body);
-                return null;
-            }
+        String accessToken = account.getPassword();
+        Map<String, String> params = new HashMap<>();
+        String mediaId = content.getParentId();
 
-            try {
-                JsonNode node = framework.getJson().fromString(body, JsonNode.class);
+        params.put("access_token", accessToken);
+        params.put("body", content.getBody());
+        params.put("site", SITE);
+        params.put("id", mediaId);
+        params.put("key", StackexchangeOAuth.CLIENT_KEY);
+
+
+        String url = MessageFormat.format(ENDPOINT_POST_ANSWER, mediaId);
+        HttpResponse response = http.post(url, params).withFormParamsContentType().execute();
+        int statusCode = response.getStatusCode();
+        String body = response.getResponseBody();
+        if (statusCode != 200) {
+            logger.error("Failed posting comment in Instagram. Received [" + statusCode + "]: " + body);
+            return null;
+        }
+
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode node = objectMapper.readValue(body, JsonNode.class);
 //                JsonNode codeNode = node.path("meta").path("code");
 //                if (codeNode.getIntValue() != 200) {
 //                    logger.error("Failed posting comment in Instagram. Unexpected meta response: " + body);
 //                    return null;
 //                }
 
-            } catch (IOException e) {
-                logger.error("Failed parsing comment creation response", e);
-                return null;
-            }
-
-            url = MessageFormat.format(ENDPOINT_GET_RECENT_ANSWERS, mediaId, accessToken);
-            response = http.get(url).execute();
-            statusCode = response.getStatusCode();
-            body = response.getResponseBody();
-            if (statusCode != 200) {
-                logger.error("Failed reading new comment in Instagram. Received [" + statusCode + "]: " + body);
-                return null;
-            }
-
-            try {
-                JsonNode node = framework.getJson().fromString(body, JsonNode.class);
-
-
-                JsonNode datas = node.path("items");
-                JsonNode first = datas.path(0);
-                JsonNode idNode = first.path("answer_id");
-                return idNode.getTextValue();
-            } catch (IOException e) {
-                logger.error("Failed parsing comment creation response", e);
-                return null;
-            }
+        }
+        catch (IOException e) {
+            logger.error("Failed parsing comment creation response", e);
+            return null;
         }
 
-        return null;
+        url = MessageFormat.format(ENDPOINT_GET_RECENT_ANSWERS, mediaId, accessToken);
+        response = http.get(url).execute();
+        statusCode = response.getStatusCode();
+        body = response.getResponseBody();
+        if (statusCode != 200) {
+            logger.error("Failed reading new comment in Instagram. Received [" + statusCode + "]: " + body);
+            return null;
+        }
+
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode node = objectMapper.readValue(body, JsonNode.class);
+
+            JsonNode datas = node.path("items");
+            JsonNode first = datas.path(0);
+            JsonNode idNode = first.path("answer_id");
+            ContentWriter.Response result = ContentWriter.Response.withStatus(Status.OK);
+            result.andCommentId(idNode.getTextValue());
+            return result;
+        }
+        catch (IOException e) {
+            logger.error("Failed parsing comment creation response", e);
+            return null;
+        }
     }
 
 

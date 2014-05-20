@@ -1,19 +1,17 @@
 package com.streamonce.connectors.stackexchange;
 
-import com.streamonce.sdk.v1.connector.authentication.AuthenticationType;
-import com.streamonce.sdk.v1.connector.authentication.OAuthEndpoint;
 import com.streamonce.sdk.v1.connector.authentication.OAuthProvider;
-import com.streamonce.sdk.v1.connector.authentication.OAuthResult;
 import com.streamonce.sdk.v1.framework.Framework;
 import com.streamonce.sdk.v1.framework.FrameworkFactory;
 import com.streamonce.sdk.v1.framework.Logger;
 import com.streamonce.sdk.v1.framework.http.Http;
 import com.streamonce.sdk.v1.framework.http.HttpRequest;
 import com.streamonce.sdk.v1.framework.http.HttpResponse;
+import com.streamonce.sdk.v1.model.Status;
 import com.streamonce.sdk.v1.model.UserAccount;
-import com.streamonce.sdk.v1.model.impl.StatusImpl;
 import org.apache.commons.lang.StringUtils;
 import org.codehaus.jackson.JsonNode;
+import org.codehaus.jackson.map.ObjectMapper;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -30,13 +28,13 @@ import java.util.Map;
  * Time: 16:48
  * To change this template use File | Settings | File Templates.
  */
-public class StackexchangeOAuth implements OAuthProvider {
+public class StackexchangeOAuth extends OAuthProvider {
 
     //https://api.stackexchange.com/docs/authentication
 
-    public final static String CLIENT_ID = "xxxx";
-    public final static String CLIENT_SECRET = "xxxx";
-    public final static String CLIENT_KEY = "xxxx";
+    public final static String CLIENT_ID = "2982";
+    public final static String CLIENT_SECRET = ")lMdSqfQbCEyCjoPk8k0FQ((";
+    public final static String CLIENT_KEY = "kl)aRzNT6iS2uP*lLTZG4Q((";
 
     /*
         client_id
@@ -61,15 +59,13 @@ public class StackexchangeOAuth implements OAuthProvider {
     }
 
     public OAuthResult handleCallback(Map<String, String> requestParameters) {
-        OAuthResult result = new OAuthResult();
         String err = requestParameters.get("error");
         String errReason = requestParameters.get("error_reason");
         String errDesc = requestParameters.get("error_description");
 
         if (StringUtils.isNotEmpty(err) || StringUtils.isNotEmpty(errReason) || StringUtils.isNotEmpty(errDesc)) {
             String message = "Error: " + err + ". Reason: " + errReason + ". Description: " + errDesc;
-            result.status = new StatusImpl(false, message);
-            return result;
+            return new OAuthResult(null,new Status(false, message));
         }
 
         String code = requestParameters.get("code");
@@ -93,40 +89,44 @@ public class StackexchangeOAuth implements OAuthProvider {
                 String accessToken = parseAccessTokenResponse(body);
                 UserAccount userAccount = getUserAccount(framework, accessToken);
 
-                result.status = new StatusImpl(true);
-                result.account = userAccount;
-                return result;
+                return new OAuthResult(userAccount,Status.OK);
+
             } catch (IOException e) {
                 String msg = e.getMessage();
-                result.status = new StatusImpl(false, "Failed [" + msg + "] parsing access token response: " + body);
                 logger.error("Failed parsing access token response: " + body, e);
-                return result;
+                return new OAuthResult(null,new Status(false, "Failed [" + msg + "] parsing access token response: " + body));
             }
         }
 
         String msg = "Received invalid response from access token exchange [" + statusCode + "]. Message: " + body;
-        result.status = new StatusImpl(false, msg);
-        return result;
+        return new OAuthResult(null,new Status(false,msg));
     }
 
     private UserAccount getUserAccount(Framework framework, String accessToken)
             throws IOException {
-        UserAccount userAccount = new UserAccount(CLIENT_ID, "dov.amir", "dov.amir", accessToken, "");
-
         String url = MessageFormat.format(StackexchangeSettingsValidator.SELF_URL, "", accessToken);
         HttpResponse responseUser = framework.getHttp().get(url).execute();
         String userbody = responseUser.getResponseBody();
 
         int userstatusCode = responseUser.getStatusCode();
         if (userstatusCode == 200) {
-            JsonNode node = framework.getJson().fromString(userbody, JsonNode.class);
-            JsonNode user = node.path("items").get(0);                         //TODO
-            String userId = user.path("user_id").getTextValue();   //should be account_id ?
-            String username = user.path("display_name").getTextValue();
-            String userDisplayName = user.path("display_name").getTextValue();
-            userAccount = new UserAccount(userId, username, userDisplayName, accessToken, "");
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode node = objectMapper.readValue(userbody, JsonNode.class);
+            JsonNode user = node.path("items").get(0);
+            String userId = "";
+            String username = "";
+            String userDisplayName = "";
+            if (user != null){
+                userId = user.path("user_id").getTextValue();   //should be account_id ?
+                username = user.path("display_name").getTextValue();
+                userDisplayName = user.path("display_name").getTextValue();
+            }
+            UserAccount userAccount = new UserAccount(userId, username, accessToken);
+            userAccount.setDisplayName(userDisplayName);
+            return userAccount;
         }
-        return userAccount;
+        return null;
+
     }
 
     public AuthenticationType getType() {
