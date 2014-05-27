@@ -100,7 +100,7 @@ public class StackexchangeConnector implements ContentWriter, ScheduledReader {
 
         for (TileConfiguration tileConfiguration : tileConfigurations) {
             String mappingName = tileConfiguration.getConfiguration("group").getValueId();
-            ContentReader.Response currResponse = new ContentReader.Response(tileConfiguration.getTileId());
+            ContentReader.Response currResponse = new ContentReader.Response(tileConfiguration);
             try {
                 int limit = MAX_ITEMS_FOR_INITIAL_FETCH;
                 String url = MessageFormat.format(ENDPOINT_GET_RECENT_QUESTIONS, mappingName, token);

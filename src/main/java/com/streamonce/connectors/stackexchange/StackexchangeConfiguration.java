@@ -18,8 +18,8 @@ public class StackexchangeConfiguration implements ConfigurationProvider {
 
     public List<Input> getConfigurations() {
         List<Input> userInputs = new ArrayList<>(1);
-
-        userInputs.add(Text.withDisplayName("Tag").andDescription("Tag to follow").withPlaceholder("Stackoverflow tag"));
+          //TODO
+        //userInputs.add(Text.withDisplayName("Tag").andDescription("Tag to follow").withPlaceholder("Stackoverflow tag"));
 
 
         return userInputs;
