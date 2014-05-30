@@ -65,7 +65,7 @@ public class StackexchangeOAuth extends OAuthProvider {
 
         if (StringUtils.isNotEmpty(err) || StringUtils.isNotEmpty(errReason) || StringUtils.isNotEmpty(errDesc)) {
             String message = "Error: " + err + ". Reason: " + errReason + ". Description: " + errDesc;
-            return new OAuthResult(null,new Status(false, message));
+            return new OAuthResult(null, new Status(false, message));
         }
 
         String code = requestParameters.get("code");
@@ -89,17 +89,18 @@ public class StackexchangeOAuth extends OAuthProvider {
                 String accessToken = parseAccessTokenResponse(body);
                 UserAccount userAccount = getUserAccount(framework, accessToken);
 
-                return new OAuthResult(userAccount,Status.OK);
+                return new OAuthResult(userAccount, Status.OK);
 
             } catch (IOException e) {
                 String msg = e.getMessage();
                 logger.error("Failed parsing access token response: " + body, e);
-                return new OAuthResult(null,new Status(false, "Failed [" + msg + "] parsing access token response: " + body));
+                return new OAuthResult(null,
+                        new Status(false, "Failed [" + msg + "] parsing access token response: " + body));
             }
         }
 
         String msg = "Received invalid response from access token exchange [" + statusCode + "]. Message: " + body;
-        return new OAuthResult(null,new Status(false,msg));
+        return new OAuthResult(null, new Status(false, msg));
     }
 
     private UserAccount getUserAccount(Framework framework, String accessToken)
@@ -116,10 +117,10 @@ public class StackexchangeOAuth extends OAuthProvider {
             String userId = "";
             String username = "";
             String userDisplayName = "";
-            if (user != null){
-                userId = user.path("user_id").getTextValue();   //should be account_id ?
-                username = user.path("display_name").getTextValue();
-                userDisplayName = user.path("display_name").getTextValue();
+            if (user != null) {
+                userId = user.path("user_id").getValueAsText();   //should be account_id ?
+                username = user.path("display_name").getValueAsText();
+                userDisplayName = user.path("display_name").getValueAsText();
             }
             UserAccount userAccount = new UserAccount(userId, username, accessToken);
             userAccount.setDisplayName(userDisplayName);

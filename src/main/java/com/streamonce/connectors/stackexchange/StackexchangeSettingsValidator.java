@@ -25,14 +25,14 @@ public class StackexchangeSettingsValidator implements ConnectorSettingsValidato
     public final static String SELF_URL = StackexchangeConnector.ENDPOINT_BASE + "me?order=desc&sort=reputation&" +
             StackexchangeConnector.ENDPOINT_ID_PARAMS;
     public final static String TAG_URL =
-            StackexchangeConnector.ENDPOINT_BASE + "tags/{0}?" + StackexchangeConnector.ENDPOINT_ID_PARAMS;
+            StackexchangeConnector.ENDPOINT_BASE + "tags/{0}/info?" + StackexchangeConnector.ENDPOINT_ID_PARAMS;
     // TODO
 
 
     @Override
     public Status validateAccount(Account account) {
         Framework framework = FrameworkFactory.createFramework(StackexchangeConnector.TYPE);
-        String url = MessageFormat.format(SELF_URL, account.getPassword());
+        String url = MessageFormat.format(SELF_URL, "", account.getPassword());
         HttpResponse response = framework.getHttp().get(url).execute();
         return isSuccessResponse(response, framework);
     }

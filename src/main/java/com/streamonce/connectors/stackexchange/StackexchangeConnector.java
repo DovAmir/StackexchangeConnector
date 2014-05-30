@@ -24,7 +24,11 @@ import org.codehaus.jackson.map.ObjectMapper;
 
 import java.io.IOException;
 import java.text.MessageFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -81,15 +85,14 @@ public class StackexchangeConnector implements ContentWriter, ScheduledReader {
 
     @Override
     public long getSchedulingPeriod() {
-        return TimeUnit.MINUTES.toSeconds(1);
+        return TimeUnit.MINUTES.toSeconds(5);
     }
 
 
     @Override
     public List<ContentReader.Response> read(Account account, List<TileConfiguration> tileConfigurations)
-            throws ConnectorException
-    {
-        List<ContentReader.Response> result = new ArrayList<>();
+            throws ConnectorException {
+        List<ContentReader.Response> responses = new ArrayList<>();
         String token = account.getPassword();
 
         Framework framework = FrameworkFactory.createFramework(TYPE);
@@ -99,7 +102,7 @@ public class StackexchangeConnector implements ContentWriter, ScheduledReader {
 
 
         for (TileConfiguration tileConfiguration : tileConfigurations) {
-            String mappingName = tileConfiguration.getConfiguration("group").getValueId();
+            String mappingName = tileConfiguration.getConfiguration("Tag").getValueId();
             ContentReader.Response currResponse = new ContentReader.Response(tileConfiguration);
             try {
                 int limit = MAX_ITEMS_FOR_INITIAL_FETCH;
@@ -120,7 +123,7 @@ public class StackexchangeConnector implements ContentWriter, ScheduledReader {
                 JsonNode node = objectMapper.readValue(body, JsonNode.class);
 
 
-                String newState = node.path("has_more").getTextValue();
+                String newState = node.path("has_more").getValueAsText();
                 if (StringUtils.isEmpty(newState)) {
                     newState = lastState;
                 }
@@ -128,14 +131,14 @@ public class StackexchangeConnector implements ContentWriter, ScheduledReader {
                 JsonNode array = node.path("items");
                 int contentCounter = 0;
                 for (JsonNode dataNode : array) {
-                    String id = dataNode.path("question_id").getTextValue();
-                    String title = dataNode.path("title").getTextValue();
+                    String id = dataNode.path("question_id").getValueAsText();
+                    String title = dataNode.path("title").getValueAsText();
                     String postBody = createBody(dataNode);
                     Date date = getCreationDate(dataNode);
                     Author author = getAuthor(dataNode.path("owner"));
                     Content content = new Content(id, title, postBody, date, author, true);
 
-                    content.setContentUrl(dataNode.path("link").getTextValue());
+                    content.setContentUrl(dataNode.path("link").getValueAsText());
 
                     currResponse.addContent(content);
 
@@ -143,8 +146,8 @@ public class StackexchangeConnector implements ContentWriter, ScheduledReader {
                     int commentCounter = 0;
                     if (comments != null) {
                         for (JsonNode commentNode : comments) {
-                            String commentId = commentNode.path("answer_id").getTextValue();
-                            String text = commentNode.path("body").getTextValue();
+                            String commentId = commentNode.path("answer_id").getValueAsText();
+                            String text = commentNode.path("body").getValueAsText();
                             Author commentAuthor = getAuthor(commentNode.path("owner"));
                             Date commentDate = getCreationDate(commentNode);
                             String commenttitle = text;
@@ -153,7 +156,7 @@ public class StackexchangeConnector implements ContentWriter, ScheduledReader {
                             }
                             Content comment = new Content(commentId, commenttitle, text, commentDate, commentAuthor,
                                     true);
-                            comment.setContentUrl(commentNode.path("link").getTextValue());
+                            comment.setContentUrl(commentNode.path("link").getValueAsText());
                             comment.setParentId(id);
 
                             currResponse.addContent(comment);
@@ -163,6 +166,7 @@ public class StackexchangeConnector implements ContentWriter, ScheduledReader {
                             }
                         }
                     }
+                    responses.add(currResponse);
 
                     if (++contentCounter >= limit) {
                         break;
@@ -170,13 +174,12 @@ public class StackexchangeConnector implements ContentWriter, ScheduledReader {
                 }
 
 
-            }
-            catch (IOException e) {
+            } catch (IOException e) {
                 logger.error("Failed fetching media for: " + mappingName);
             }
         }
 
-        return result;
+        return responses;
     }
 
     public Date getCreationDate(JsonNode dataNode) {
@@ -185,24 +188,19 @@ public class StackexchangeConnector implements ContentWriter, ScheduledReader {
     }
 
     public Author getAuthor(JsonNode authorNode) {
-        String authorName = authorNode.path("display_name").getTextValue();
+        String authorName = authorNode.path("display_name").getValueAsText();
         return new Author(authorName, "");
     }
 
     public String createBody(JsonNode node) {
         StringBuilder sb = new StringBuilder();
-
-
-        String body = node.path("body").getTextValue();
+        String body = node.path("body").getValueAsText();
         sb.append(body);
-
         String likesStr = String.valueOf(node.path("score").getIntValue());
         if (StringUtils.isNotEmpty(likesStr)) {
             sb.append("<div style=\"padding-bottom: 1em;\"><strong>score:</strong> ")
                     .append(likesStr).append("</div>");
         }
-
-
         return sb.toString();
     }
 
@@ -243,8 +241,7 @@ public class StackexchangeConnector implements ContentWriter, ScheduledReader {
 //                    return null;
 //                }
 
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             logger.error("Failed parsing comment creation response", e);
             return null;
         }
@@ -266,10 +263,9 @@ public class StackexchangeConnector implements ContentWriter, ScheduledReader {
             JsonNode first = datas.path(0);
             JsonNode idNode = first.path("answer_id");
             ContentWriter.Response result = ContentWriter.Response.withStatus(Status.OK);
-            result.andCommentId(idNode.getTextValue());
+            result.andCommentId(idNode.getValueAsText());
             return result;
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             logger.error("Failed parsing comment creation response", e);
             return null;
         }
